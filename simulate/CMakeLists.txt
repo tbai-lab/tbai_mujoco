@@ -16,7 +16,7 @@ else()
 endif()
 
 # ── MuJoCo (pre-built release) ────────────────────────────────────────────
-set(MUJOCO_VERSION "3.3.6")
+set(MUJOCO_VERSION "3.6.0")
 set(MUJOCO_URL "https://github.com/google-deepmind/mujoco/releases/download/${MUJOCO_VERSION}/mujoco-${MUJOCO_VERSION}-linux-x86_64.tar.gz")
 
 FetchContent_Declare(
@@ -80,6 +80,14 @@ target_link_libraries(tbai_mujoco
   glfw
   yaml-cpp
   zenohc
+)
+
+# ── Symlink MuJoCo plugins next to the binary so they are auto-loaded ─────
+add_custom_command(TARGET tbai_mujoco POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E create_symlink
+    "${MUJOCO_DIR}/bin/mujoco_plugin"
+    "$<TARGET_FILE_DIR:tbai_mujoco>/mujoco_plugin"
+  COMMENT "Symlinking MuJoCo plugins"
 )
 
 # ── Install ───────────────────────────────────────────────────────────────
