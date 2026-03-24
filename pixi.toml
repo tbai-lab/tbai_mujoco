@@ -1,0 +1,19 @@
+[project]
+name = "tbai_mujoco"
+version = "0.1.0"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+cmake = ">=3.22,<4"
+ninja = "*"
+cxx-compiler = "*"
+pkg-config = "*"
+glfw = "*"
+yaml-cpp = "*"
+mesa-libgl-devel-cos7-x86_64 = "*"
+
+[tasks]
+configure = { cmd = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTBAI_SDK_DIR=/home/kb/projects/tbai_sdk" }
+build = { cmd = "cmake --build build -j", depends-on = ["configure"] }
+clean = "rm -rf build"
