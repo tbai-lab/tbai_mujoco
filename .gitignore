@@ -1,0 +1,6 @@
+build/
+.pixi/
+pixi.lock
+images/
+depth/
+MUJOCO_LOG.TXT
