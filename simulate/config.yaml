@@ -1,0 +1,35 @@
+robot: "go2"
+robot_scene: "/home/kb/projects/tbai_mujoco_descriptions/robots/go2/scene.xml"
+
+use_joystick: 0
+joystick_type: "xbox"
+joystick_device: "/dev/input/js0"
+joystick_bits: 16
+
+print_scene_information: 1
+
+enable_elastic_band: 0
+
+# Topics
+motor_commands_topic: "rt/motor_commands"
+low_state_topic: "rt/low_state"
+
+# Bridge loop rate (Hz)
+bridge_rate: 1000
+
+# Camera / Video (publishes robot_msgs::ImgFrame as PNG over Zenoh)
+camera_name: "head_camera"
+camera_width: 640
+camera_height: 480
+camera_fps: 30
+camera_topic: "rt/camera/image"
+
+# Depth Camera / PointCloud (publishes robot_msgs::PointCloud2 over Zenoh)
+depth_camera_name: "depth_camera"
+depth_camera_width: 640
+depth_camera_height: 480
+depth_camera_fps: 10
+depth_camera_stride: 4
+depth_camera_min_distance: 0.1
+depth_camera_max_distance: 2.5
+pointcloud_topic: "rt/pointcloud"
