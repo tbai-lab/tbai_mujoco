@@ -82,12 +82,12 @@ target_link_libraries(tbai_mujoco
   zenohc
 )
 
-# ── Symlink MuJoCo plugins next to the binary so they are auto-loaded ─────
+# ── Copy MuJoCo plugins next to the binary so they are auto-loaded ────────
 add_custom_command(TARGET tbai_mujoco POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E create_symlink
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${MUJOCO_DIR}/bin/mujoco_plugin"
     "$<TARGET_FILE_DIR:tbai_mujoco>/mujoco_plugin"
-  COMMENT "Symlinking MuJoCo plugins"
+  COMMENT "Copying MuJoCo plugins"
 )
 
 # ── Install ───────────────────────────────────────────────────────────────
