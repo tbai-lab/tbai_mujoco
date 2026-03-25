@@ -12,8 +12,17 @@ pkg-config = "*"
 glfw = "*"
 yaml-cpp = "*"
 mesa-libgl-devel-cos7-x86_64 = "*"
+python = ">=3.10"
+pip = "*"
+
+[pypi-dependencies]
+pillow = "*"
+eclipse-zenoh = ">=1.0.0,<2"
+hatchling = "*"
+tbai-sdk = { path = "/home/kb/projects/tbai_sdk", editable = true }
 
 [tasks]
 configure = { cmd = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTBAI_SDK_DIR=/home/kb/projects/tbai_sdk" }
 build = { cmd = "cmake --build build -j", depends-on = ["configure"] }
 clean = "rm -rf build"
+stand-go2-py = "python example/stand_go2.py"
