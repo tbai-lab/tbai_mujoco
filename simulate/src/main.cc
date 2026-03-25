@@ -548,7 +548,7 @@ void *TbaiBridgeThread(void *arg)
 
   // Start camera rendering + video publisher if configured
   std::unique_ptr<CameraRenderer> cam_renderer;
-  if (args->camera_window && !param::config.camera_name.empty())
+  if (args->camera_window && param::config.enable_camera)
   {
     cam_renderer = std::make_unique<CameraRenderer>(
         m, d, args->sim->mtx, args->camera_window,
@@ -562,7 +562,7 @@ void *TbaiBridgeThread(void *arg)
 
   // Start depth camera / pointcloud publisher if configured
   std::unique_ptr<PointCloudPublisher> pointcloud_pub;
-  if (args->depth_camera_window && !param::config.depth_camera_name.empty())
+  if (args->depth_camera_window && param::config.enable_depth_camera)
   {
     pointcloud_pub = std::make_unique<PointCloudPublisher>(
         m, d, args->sim->mtx, args->depth_camera_window,
@@ -659,7 +659,7 @@ int main(int argc, char **argv)
 
   // Create hidden GLFW window for camera offscreen rendering (must be on main thread)
   GLFWwindow *camera_window = nullptr;
-  if (!param::config.camera_name.empty())
+  if (param::config.enable_camera)
   {
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     camera_window = glfwCreateWindow(
@@ -672,7 +672,7 @@ int main(int argc, char **argv)
 
   // Create hidden GLFW window for depth camera / pointcloud (must be on main thread)
   GLFWwindow *depth_camera_window = nullptr;
-  if (!param::config.depth_camera_name.empty())
+  if (param::config.enable_depth_camera)
   {
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     depth_camera_window = glfwCreateWindow(

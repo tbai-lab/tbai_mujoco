@@ -32,14 +32,16 @@ inline struct SimulationConfig
     double bridge_rate = 1000.0;
 
     // Camera / Video
-    std::string camera_name;               // MuJoCo camera name (empty = disabled)
+    bool enable_camera = false;
+    std::string camera_name;
     int camera_width = 640;
     int camera_height = 480;
     double camera_fps = 30.0;
     std::string camera_topic = "rt/camera/image";
 
     // Depth camera / PointCloud
-    std::string depth_camera_name;         // MuJoCo camera name (empty = disabled)
+    bool enable_depth_camera = false;
+    std::string depth_camera_name;
     int depth_camera_width = 320;
     int depth_camera_height = 240;
     double depth_camera_fps = 10.0;
@@ -69,6 +71,8 @@ inline struct SimulationConfig
             if (cfg["bridge_rate"])
                 bridge_rate = cfg["bridge_rate"].as<double>();
 
+            if (cfg["enable_camera"])
+                enable_camera = cfg["enable_camera"].as<int>() != 0;
             if (cfg["camera_name"])
                 camera_name = cfg["camera_name"].as<std::string>();
             if (cfg["camera_width"])
@@ -80,6 +84,8 @@ inline struct SimulationConfig
             if (cfg["camera_topic"])
                 camera_topic = cfg["camera_topic"].as<std::string>();
 
+            if (cfg["enable_depth_camera"])
+                enable_depth_camera = cfg["enable_depth_camera"].as<int>() != 0;
             if (cfg["depth_camera_name"])
                 depth_camera_name = cfg["depth_camera_name"].as<std::string>();
             if (cfg["depth_camera_width"])

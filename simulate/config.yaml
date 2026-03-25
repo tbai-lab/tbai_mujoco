@@ -18,6 +18,7 @@ low_state_topic: "rt/low_state"
 bridge_rate: 1000
 
 # Camera / Video (publishes robot_msgs::ImgFrame as PNG over Zenoh)
+enable_camera: 1
 camera_name: "head_camera"
 camera_width: 640
 camera_height: 480
@@ -25,6 +26,7 @@ camera_fps: 30
 camera_topic: "rt/camera/image"
 
 # Depth Camera / PointCloud (publishes robot_msgs::PointCloud2 over Zenoh)
+enable_depth_camera: 1
 depth_camera_name: "depth_camera"
 depth_camera_width: 640
 depth_camera_height: 480
