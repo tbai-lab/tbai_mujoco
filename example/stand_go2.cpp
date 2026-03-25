@@ -239,16 +239,21 @@ int main(int argc, char** argv)
 
         cmd_pub.publish(cmd);
 
-        // Save every Nth received RGB image
+        // Save every Nth received RGB image (arrives as raw rgb8, encode to PNG at save time)
         uint64_t img_count = image_sub.message_count();
         if (img_count > 0 && img_count >= last_saved_img + save_every_n)
         {
             if (auto img = image_sub.get()) {
-                char filename[128];
-                std::snprintf(filename, sizeof(filename), "images/%06d.png", saved_images);
-                std::ofstream out(filename, std::ios::binary);
-                out.write(reinterpret_cast<const char*>(img->data.data()), img->data.size());
-                std::printf("[%6.1fs] Saved %s (%zu bytes)\n", t, filename, img->data.size());
+                std::vector<uint8_t> png;
+                unsigned err = lodepng::encode(png, img->data.data(),
+                                               img->width, img->height, LCT_RGB, 8);
+                if (err == 0) {
+                    char filename[128];
+                    std::snprintf(filename, sizeof(filename), "images/%06d.png", saved_images);
+                    std::ofstream out(filename, std::ios::binary);
+                    out.write(reinterpret_cast<const char*>(png.data()), png.size());
+                    std::printf("[%6.1fs] Saved %s (%zu bytes)\n", t, filename, png.size());
+                }
                 last_saved_img = img_count;
                 ++saved_images;
             }

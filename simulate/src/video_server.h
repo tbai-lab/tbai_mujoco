@@ -15,8 +15,6 @@
 #include <thread>
 #include <vector>
 
-#include "lodepng.h"
-
 // ---------------------------------------------------------------------------
 // CameraRenderer – renders a named MuJoCo camera into an offscreen buffer,
 // encodes as PNG, and publishes as robot_msgs::ImgFrame over Zenoh.
@@ -107,15 +105,8 @@ private:
             // Flip vertically (OpenGL bottom-left origin → top-left)
             flipVertical(rgb.data(), width_, height_, 3);
 
-            // Encode as PNG
-            std::vector<uint8_t> png;
-            unsigned err = lodepng::encode(png, rgb.data(),
-                                           static_cast<unsigned>(width_),
-                                           static_cast<unsigned>(height_),
-                                           LCT_RGB, 8);
-            if (err == 0)
+            // Publish raw RGB
             {
-                // Build ImgFrame message
                 robot_msgs::ImgFrame msg;
                 auto now = std::chrono::system_clock::now();
                 auto epoch = now.time_since_epoch();
@@ -126,10 +117,10 @@ private:
                 msg.header.frame_id = camera_name_;
                 msg.height = height_;
                 msg.width = width_;
-                msg.encoding = "png";
+                msg.encoding = "rgb8";
                 msg.is_bigendian = 0;
-                msg.step = 0;
-                msg.data = std::move(png);
+                msg.step = width_ * 3;
+                msg.data = rgb;
 
                 publisher.publish(msg);
             }
