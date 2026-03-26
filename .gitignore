@@ -1,4 +1,5 @@
 build/
+configs/
 deps/
 .pixi/
 pixi.lock
