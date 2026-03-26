@@ -1,0 +1,44 @@
+robot: "spot"
+robot_scene: "/home/kb/projects/tbai_mujoco_descriptions/robots/spot/scene.xml"
+
+
+print_scene_information: 1
+enable_elastic_band: 0
+
+motor_commands_topic: "rt/lowcmd"
+low_state_topic: "rt/lowstate"
+bridge_rate: 1000
+
+enable_depth_cameras: 0
+
+cameras:
+  - name: "camera_front"
+    topic: "rt/camera/front"
+    width: 640
+    height: 480
+    fps: 30
+  - name: "camera_front_left"
+    topic: "rt/camera/front_left"
+    width: 640
+    height: 480
+    fps: 15
+  - name: "camera_front_right"
+    topic: "rt/camera/front_right"
+    width: 640
+    height: 480
+    fps: 15
+  - name: "camera_left"
+    topic: "rt/camera/left"
+    width: 640
+    height: 480
+    fps: 15
+  - name: "camera_right"
+    topic: "rt/camera/right"
+    width: 640
+    height: 480
+    fps: 15
+  - name: "camera_back"
+    topic: "rt/camera/back"
+    width: 640
+    height: 480
+    fps: 15

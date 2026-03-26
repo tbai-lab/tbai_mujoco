@@ -1,0 +1,29 @@
+robot: "g1"
+robot_scene: "/home/kb/projects/tbai_mujoco_descriptions/robots/g1/scene.xml"
+
+
+print_scene_information: 1
+enable_elastic_band: 1
+
+motor_commands_topic: "rt/lowcmd"
+low_state_topic: "rt/lowstate"
+bridge_rate: 1000
+
+enable_cameras: 1
+cameras:
+  - name: "head_camera"
+    topic: "rt/camera/image"
+    width: 640
+    height: 480
+    fps: 30
+
+enable_depth_cameras: 1
+depth_cameras:
+  - name: "depth_camera"
+    topic: "rt/pointcloud"
+    width: 640
+    height: 480
+    fps: 10
+    stride: 4
+    min_distance: 0.1
+    max_distance: 2.5
