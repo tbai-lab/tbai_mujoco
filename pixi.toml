@@ -19,7 +19,7 @@ pip = "*"
 pillow = "*"
 eclipse-zenoh = ">=1.0.0,<2"
 hatchling = "*"
-tbai-sdk = { path = "deps/tbai_sdk", editable = true }
+tbai-sdk = { path = "thirdparty/tbai_sdk", editable = true }
 
 [tasks]
 configure = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release"

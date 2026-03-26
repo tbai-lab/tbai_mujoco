@@ -1,6 +1,6 @@
 build/
 configs/
-deps/
+thirdparty/
 .pixi/
 pixi.lock
 images/

@@ -36,7 +36,7 @@ message(STATUS "MuJoCo include dir: ${MUJOCO_INCLUDE_DIR}")
 message(STATUS "MuJoCo lib: ${MUJOCO_LIB}")
 
 # ── tbai_sdk ──────────────────────────────────────────────────────────────
-set(TBAI_SDK_DIR "${CMAKE_SOURCE_DIR}/deps/tbai_sdk" CACHE PATH "Path to tbai_sdk")
+set(TBAI_SDK_DIR "${CMAKE_SOURCE_DIR}/thirdparty/tbai_sdk" CACHE PATH "Path to tbai_sdk")
 if(NOT EXISTS "${TBAI_SDK_DIR}/include/tbai_sdk/session.hpp")
   message(FATAL_ERROR "tbai_sdk not found at ${TBAI_SDK_DIR}.\nRun: pixi run setup-tbai-sdk")
 endif()
