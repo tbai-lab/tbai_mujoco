@@ -36,13 +36,9 @@ message(STATUS "MuJoCo include dir: ${MUJOCO_INCLUDE_DIR}")
 message(STATUS "MuJoCo lib: ${MUJOCO_LIB}")
 
 # ── tbai_sdk ──────────────────────────────────────────────────────────────
-set(TBAI_SDK_DIR "${CMAKE_SOURCE_DIR}/../tbai_sdk" CACHE PATH "Path to tbai_sdk")
+set(TBAI_SDK_DIR "${CMAKE_SOURCE_DIR}/deps/tbai_sdk" CACHE PATH "Path to tbai_sdk")
 if(NOT EXISTS "${TBAI_SDK_DIR}/include/tbai_sdk/session.hpp")
-  # Try sibling directory relative to project root
-  set(TBAI_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../tbai_sdk")
-  if(NOT EXISTS "${TBAI_SDK_DIR}/include/tbai_sdk/session.hpp")
-    message(FATAL_ERROR "tbai_sdk not found. Set TBAI_SDK_DIR to the tbai_sdk root directory.")
-  endif()
+  message(FATAL_ERROR "tbai_sdk not found at ${TBAI_SDK_DIR}.\nRun: pixi run setup-tbai-sdk")
 endif()
 message(STATUS "tbai_sdk dir: ${TBAI_SDK_DIR}")
 
@@ -50,7 +46,7 @@ set(ZENOH_INSTALL "${TBAI_SDK_DIR}/deps/zenoh-install" CACHE PATH "Zenoh install
 if(NOT EXISTS "${ZENOH_INSTALL}/lib/libzenohc.so")
   message(FATAL_ERROR
     "Zenoh not found at ${ZENOH_INSTALL}.\n"
-    "Run: cd ${TBAI_SDK_DIR} && pixi run setup-zenoh")
+    "Run: pixi run setup-tbai-sdk")
 endif()
 
 # ── Dependencies ──────────────────────────────────────────────────────────
@@ -64,7 +60,6 @@ include_directories(
 )
 
 file(GLOB SIM_SRC
-  src/joystick/joystick.cc
   src/lodepng/lodepng.cpp
   ${MUJOCO_DIR}/simulate/glfw_*.cc
   ${MUJOCO_DIR}/simulate/platform_*.cc

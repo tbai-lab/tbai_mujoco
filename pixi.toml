@@ -19,10 +19,10 @@ pip = "*"
 pillow = "*"
 eclipse-zenoh = ">=1.0.0,<2"
 hatchling = "*"
-tbai-sdk = { path = "/home/kb/projects/tbai_sdk", editable = true }
+tbai-sdk = { path = "deps/tbai_sdk", editable = true }
 
 [tasks]
-configure = { cmd = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DTBAI_SDK_DIR=/home/kb/projects/tbai_sdk" }
+configure = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release"
 build = { cmd = "cmake --build build -j", depends-on = ["configure"] }
 clean = "rm -rf build"
 stand-go2-py = "python example/stand_go2.py"

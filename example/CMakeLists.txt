@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
 
 # ── tbai_sdk ──────────────────────────────────────────────────────────────
-set(TBAI_SDK_DIR "/home/kb/projects/tbai_sdk" CACHE PATH "Path to tbai_sdk")
+set(TBAI_SDK_DIR "${CMAKE_SOURCE_DIR}/deps/tbai_sdk" CACHE PATH "Path to tbai_sdk")
 set(ZENOH_INSTALL "${TBAI_SDK_DIR}/deps/zenoh-install")
 
 # lodepng (for depth heatmap PNG encoding)
