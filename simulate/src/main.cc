@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// !!! hack code: make glfw_adapter.window_ public
 #define private public
 #include "glfw_adapter.h"
 #undef private
@@ -518,13 +517,16 @@ void PhysicsThread(mj::Simulate *sim, const char *filename)
 struct BridgeThreadArgs
 {
   mj::Simulate *sim;
-  GLFWwindow *camera_window;
-  GLFWwindow *depth_camera_window;
+  std::vector<GLFWwindow*> camera_windows;
+  std::vector<GLFWwindow*> depth_camera_windows;
 };
 
 void *TbaiBridgeThread(void *arg)
 {
   auto *args = static_cast<BridgeThreadArgs *>(arg);
+
+  // Pre-initialize Zenoh session while waiting for MuJoCo data
+  (void)tbai::session();
 
   // Wait for mujoco data
   while (true)
@@ -534,7 +536,7 @@ void *TbaiBridgeThread(void *arg)
       std::cout << "MuJoCo data is prepared" << std::endl;
       break;
     }
-    usleep(500000);
+    usleep(10000);
   }
 
   int body_id = mj_name2id(m, mjOBJ_BODY, "torso_link");
@@ -546,35 +548,35 @@ void *TbaiBridgeThread(void *arg)
   auto bridge = std::make_unique<TbaiBridge>(m, d);
   bridge->start();
 
-  // Start camera rendering + video publisher if configured
-  std::unique_ptr<CameraRenderer> cam_renderer;
-  if (args->camera_window && param::config.enable_camera)
-  {
-    cam_renderer = std::make_unique<CameraRenderer>(
-        m, d, args->sim->mtx, args->camera_window,
-        param::config.camera_name,
-        param::config.camera_width,
-        param::config.camera_height,
-        param::config.camera_fps,
-        param::config.camera_topic);
-    cam_renderer->start();
+  // Start camera renderers
+  std::vector<std::unique_ptr<CameraRenderer>> cam_renderers;
+  if (param::config.enable_cameras) {
+    for (size_t i = 0; i < param::config.cameras.size(); i++) {
+      const auto &cam = param::config.cameras[i];
+      if (cam.enabled && i < args->camera_windows.size() && args->camera_windows[i]) {
+        auto renderer = std::make_unique<CameraRenderer>(
+            m, d, args->sim->mtx, args->camera_windows[i],
+            cam.name, cam.width, cam.height, cam.fps, cam.topic);
+        renderer->start();
+        cam_renderers.push_back(std::move(renderer));
+      }
+    }
   }
 
-  // Start depth camera / pointcloud publisher if configured
-  std::unique_ptr<PointCloudPublisher> pointcloud_pub;
-  if (args->depth_camera_window && param::config.enable_depth_camera)
-  {
-    pointcloud_pub = std::make_unique<PointCloudPublisher>(
-        m, d, args->sim->mtx, args->depth_camera_window,
-        param::config.depth_camera_name,
-        param::config.depth_camera_width,
-        param::config.depth_camera_height,
-        param::config.depth_camera_fps,
-        param::config.depth_camera_stride,
-        param::config.pointcloud_topic,
-        param::config.depth_camera_min_distance,
-        param::config.depth_camera_max_distance);
-    pointcloud_pub->start();
+  // Start depth camera / pointcloud publishers
+  std::vector<std::unique_ptr<PointCloudPublisher>> pointcloud_pubs;
+  if (param::config.enable_depth_cameras) {
+    for (size_t i = 0; i < param::config.depth_cameras.size(); i++) {
+      const auto &dc = param::config.depth_cameras[i];
+      if (dc.enabled && i < args->depth_camera_windows.size() && args->depth_camera_windows[i]) {
+        auto pub = std::make_unique<PointCloudPublisher>(
+            m, d, args->sim->mtx, args->depth_camera_windows[i],
+            dc.name, dc.width, dc.height, dc.fps, dc.stride,
+            dc.topic, dc.min_distance, dc.max_distance);
+        pub->start();
+        pointcloud_pubs.push_back(std::move(pub));
+      }
+    }
   }
 
   while (true)
@@ -600,6 +602,9 @@ void user_key_cb(GLFWwindow* window, int key, int scancode, int act, int mods) {
     if(param::config.enable_elastic_band == 1) {
       if (key==GLFW_KEY_9) {
         elastic_band.enable_ = !elastic_band.enable_;
+        if (elastic_band.enable_) {
+          elastic_band.point_ = {d->qpos[0], d->qpos[1], d->qpos[2] + elastic_band.length_ + 1.0};
+        }
       } else if (key==GLFW_KEY_7 || key==GLFW_KEY_UP) {
         elastic_band.length_ -= 0.1;
       } else if (key==GLFW_KEY_8 || key==GLFW_KEY_DOWN) {
@@ -640,50 +645,56 @@ int main(int argc, char **argv)
   mjvPerturb pert;
   mjv_defaultPerturb(&pert);
 
-  // Load simulation configuration
-  std::filesystem::path executable_dir = std::filesystem::path(getExecutableDir());
-  std::filesystem::path config_path = (argc > 1) ? std::filesystem::path(argv[1]) : executable_dir / "config.yaml";
-  if (std::filesystem::is_directory(config_path)) {
-    config_path = config_path / "config.yaml";
+  if (argc < 2) {
+    std::cerr << "Usage: tbai_mujoco <config.yaml> [options]" << std::endl;
+    return 1;
   }
-  std::cerr << "Config path: " << config_path.string() << std::endl;
-  param::config.load_from_yaml(config_path);
+
+  if(!std::filesystem::exists(argv[1])) {
+    std::cerr << "Config file not found: " << argv[1] << std::endl;
+    return 1;
+  }
+
+  param::config.load_from_yaml(argv[1]);
   param::helper(argc, argv);
-  if(param::config.robot_scene.is_relative()) {
-    param::config.robot_scene = config_path.parent_path() / param::config.robot_scene;
-  }
 
   auto sim = std::make_unique<mj::Simulate>(
     std::make_unique<mj::GlfwAdapter>(),
     &cam, &opt, &pert, /* is_passive = */ false);
 
-  // Create hidden GLFW window for camera offscreen rendering (must be on main thread)
-  GLFWwindow *camera_window = nullptr;
-  if (param::config.enable_camera)
-  {
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    camera_window = glfwCreateWindow(
-        param::config.camera_width, param::config.camera_height,
-        "camera_offscreen", nullptr, nullptr);
-    glfwDefaultWindowHints();
-    if (!camera_window)
-      std::cerr << "[VideoServer] Failed to create offscreen GLFW window" << std::endl;
+  // Create hidden GLFW windows for enabled cameras (must be on main thread)
+  std::vector<GLFWwindow*> camera_windows;
+  for (size_t i = 0; i < param::config.cameras.size(); i++) {
+    const auto &cam = param::config.cameras[i];
+    if (param::config.enable_cameras && cam.enabled) {
+      glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+      GLFWwindow *w = glfwCreateWindow(cam.width, cam.height,
+          ("cam_" + std::to_string(i)).c_str(), nullptr, nullptr);
+      glfwDefaultWindowHints();
+      if (!w) std::cerr << "[VideoServer] Failed to create window for camera: " << cam.name << std::endl;
+      camera_windows.push_back(w);
+    } else {
+      camera_windows.push_back(nullptr);
+    }
   }
 
-  // Create hidden GLFW window for depth camera / pointcloud (must be on main thread)
-  GLFWwindow *depth_camera_window = nullptr;
-  if (param::config.enable_depth_camera)
-  {
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-    depth_camera_window = glfwCreateWindow(
-        param::config.depth_camera_width, param::config.depth_camera_height,
-        "depth_camera_offscreen", nullptr, nullptr);
-    glfwDefaultWindowHints();
-    if (!depth_camera_window)
-      std::cerr << "[PointCloud] Failed to create offscreen GLFW window" << std::endl;
+  // Create hidden GLFW windows for enabled depth cameras (must be on main thread)
+  std::vector<GLFWwindow*> depth_camera_windows;
+  for (size_t i = 0; i < param::config.depth_cameras.size(); i++) {
+    const auto &dc = param::config.depth_cameras[i];
+    if (param::config.enable_depth_cameras && dc.enabled) {
+      glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+      GLFWwindow *w = glfwCreateWindow(dc.width, dc.height,
+          ("depth_cam_" + std::to_string(i)).c_str(), nullptr, nullptr);
+      glfwDefaultWindowHints();
+      if (!w) std::cerr << "[PointCloud] Failed to create window for depth camera: " << dc.name << std::endl;
+      depth_camera_windows.push_back(w);
+    } else {
+      depth_camera_windows.push_back(nullptr);
+    }
   }
 
-  static BridgeThreadArgs bridge_args{sim.get(), camera_window, depth_camera_window};
+  static BridgeThreadArgs bridge_args{sim.get(), camera_windows, depth_camera_windows};
   std::thread bridge_thread(TbaiBridgeThread, &bridge_args);
 
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), param::config.robot_scene.c_str());
