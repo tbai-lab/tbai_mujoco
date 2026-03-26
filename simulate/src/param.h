@@ -57,11 +57,15 @@ inline struct SimulationConfig
 
     void load_from_yaml(const std::string &filename)
     {
+        auto config_path = std::filesystem::canonical(filename);
+        auto config_dir = config_path.parent_path();
         auto cfg = YAML::LoadFile(filename);
         try
         {
             robot = cfg["robot"].as<std::string>();
             robot_scene = cfg["robot_scene"].as<std::string>();
+            if (robot_scene.is_relative())
+                robot_scene = std::filesystem::canonical(config_dir / robot_scene);
             print_scene_information = cfg["print_scene_information"].as<int>();
             enable_elastic_band = cfg["enable_elastic_band"].as<int>();
 
