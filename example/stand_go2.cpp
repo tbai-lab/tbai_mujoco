@@ -166,29 +166,46 @@ int main(int argc, char** argv)
     double hold_duration = 2.0;
     double ramp_duration = 3.0 * RAMP_TAU;  // default ~3.6s
     int save_every_n = 10;                   // save every Nth frame
-    if (argc > 1)
-        hold_duration = std::atof(argv[1]);
-    if (argc > 2)
-        ramp_duration = std::atof(argv[2]);
-    if (argc > 3)
-        save_every_n = std::max(1, std::atoi(argv[3]));
+    bool store_images = false;
+    bool store_depth = false;
+
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--store_images") {
+            store_images = true;
+        } else if (arg == "--store_depth") {
+            store_depth = true;
+        } else if (arg == "--save_every" && i + 1 < argc) {
+            save_every_n = std::max(1, std::atoi(argv[++i]));
+        } else if (arg == "--hold" && i + 1 < argc) {
+            hold_duration = std::atof(argv[++i]);
+        } else if (arg == "--ramp" && i + 1 < argc) {
+            ramp_duration = std::atof(argv[++i]);
+        } else if (arg == "-h" || arg == "--help") {
+            std::printf("Usage: stand_go2 [options]\n"
+                        "  --hold <s>        Hold duration (default: 2.0)\n"
+                        "  --ramp <s>        Ramp duration (default: 3.6)\n"
+                        "  --store_images    Save RGB images to images/\n"
+                        "  --store_depth     Save depth heatmaps to depth/\n"
+                        "  --save_every <n>  Save every Nth frame (default: 10)\n");
+            return 0;
+        }
+    }
 
     double tau = ramp_duration / 3.0;
     double half_cycle = ramp_duration + hold_duration;
     double full_cycle = 2.0 * half_cycle;
 
-    // Create output directories
-    std::filesystem::create_directories("images");
-    std::filesystem::create_directories("depth");
+    if (store_images) std::filesystem::create_directories("images");
+    if (store_depth) std::filesystem::create_directories("depth");
 
-    std::printf("Stand Go2 — hold=%.1fs  ramp=%.1fs  cycle=%.1fs  save_every=%d\n",
-                hold_duration, ramp_duration, full_cycle, save_every_n);
-    std::printf("Saving RGB to images/  and depth heatmaps to depth/\n");
+    std::printf("Stand Go2 — hold=%.1fs  ramp=%.1fs  cycle=%.1fs\n",
+                hold_duration, ramp_duration, full_cycle);
     std::printf("Press ENTER to start...");
     std::cin.get();
 
-    tbai::Publisher<robot_msgs::MotorCommands> cmd_pub("rt/motor_commands");
-    tbai::PollingSubscriber<robot_msgs::LowState> state_sub("rt/low_state");
+    tbai::Publisher<robot_msgs::MotorCommands> cmd_pub("rt/lowcmd");
+    tbai::PollingSubscriber<robot_msgs::LowState> state_sub("rt/lowstate");
     tbai::PollingSubscriber<robot_msgs::ImgFrame> image_sub("rt/camera/image");
     tbai::PollingSubscriber<robot_msgs::PointCloud2> pc_sub("rt/pointcloud");
 
@@ -239,41 +256,43 @@ int main(int argc, char** argv)
 
         cmd_pub.publish(cmd);
 
-        // Save every Nth received RGB image (arrives as raw rgb8, encode to PNG at save time)
-        uint64_t img_count = image_sub.message_count();
-        if (img_count > 0 && img_count >= last_saved_img + save_every_n)
-        {
-            if (auto img = image_sub.get()) {
-                std::vector<uint8_t> png;
-                unsigned err = lodepng::encode(png, img->data.data(),
-                                               img->width, img->height, LCT_RGB, 8);
-                if (err == 0) {
-                    char filename[128];
-                    std::snprintf(filename, sizeof(filename), "images/%06d.png", saved_images);
-                    std::ofstream out(filename, std::ios::binary);
-                    out.write(reinterpret_cast<const char*>(png.data()), png.size());
-                    std::printf("[%6.1fs] Saved %s (%zu bytes)\n", t, filename, png.size());
+        if (store_images) {
+            uint64_t img_count = image_sub.message_count();
+            if (img_count > 0 && img_count >= last_saved_img + save_every_n)
+            {
+                if (auto img = image_sub.get()) {
+                    std::vector<uint8_t> png;
+                    unsigned err = lodepng::encode(png, img->data.data(),
+                                                   img->width, img->height, LCT_RGB, 8);
+                    if (err == 0) {
+                        char filename[128];
+                        std::snprintf(filename, sizeof(filename), "images/%06d.png", saved_images);
+                        std::ofstream out(filename, std::ios::binary);
+                        out.write(reinterpret_cast<const char*>(png.data()), png.size());
+                        std::printf("[%6.1fs] Saved %s (%zu bytes)\n", t, filename, png.size());
+                    }
+                    last_saved_img = img_count;
+                    ++saved_images;
                 }
-                last_saved_img = img_count;
-                ++saved_images;
             }
         }
 
-        // Save every Nth received pointcloud as depth heatmap
-        uint64_t pc_count = pc_sub.message_count();
-        if (pc_count > 0 && pc_count >= last_saved_pc + save_every_n)
-        {
-            if (auto pc = pc_sub.get()) {
-                std::vector<uint8_t> png;
-                if (pointcloud_to_depth_png(*pc, DEPTH_W, DEPTH_H, DEPTH_FOV_Y, DEPTH_MAX, png)) {
-                    char filename[128];
-                    std::snprintf(filename, sizeof(filename), "depth/%06d.png", saved_depths);
-                    std::ofstream out(filename, std::ios::binary);
-                    out.write(reinterpret_cast<const char*>(png.data()), png.size());
-                    std::printf("[%6.1fs] Saved %s (%u pts → %zu bytes)\n",
-                                t, filename, pc->width, png.size());
-                    last_saved_pc = pc_count;
-                    ++saved_depths;
+        if (store_depth) {
+            uint64_t pc_count = pc_sub.message_count();
+            if (pc_count > 0 && pc_count >= last_saved_pc + save_every_n)
+            {
+                if (auto pc = pc_sub.get()) {
+                    std::vector<uint8_t> png;
+                    if (pointcloud_to_depth_png(*pc, DEPTH_W, DEPTH_H, DEPTH_FOV_Y, DEPTH_MAX, png)) {
+                        char filename[128];
+                        std::snprintf(filename, sizeof(filename), "depth/%06d.png", saved_depths);
+                        std::ofstream out(filename, std::ios::binary);
+                        out.write(reinterpret_cast<const char*>(png.data()), png.size());
+                        std::printf("[%6.1fs] Saved %s (%u pts → %zu bytes)\n",
+                                    t, filename, pc->width, png.size());
+                        last_saved_pc = pc_count;
+                        ++saved_depths;
+                    }
                 }
             }
         }

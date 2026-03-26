@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Repeatedly stand up and sit down — using tbai_sdk over Zenoh.
 
-Usage: python stand_go2.py [hold_duration_s] [ramp_duration_s] [save_every_nth_frame]
+Usage: python stand_go2.py [--store_images] [--store_depth] [--hold S] [--ramp S] [--save_every N]
 """
 
+import argparse
 import math
 import os
 import struct
@@ -135,33 +136,37 @@ def pointcloud_to_depth_image(
 
 
 def main():
-    hold_duration = 2.0
-    ramp_duration = 3.0 * RAMP_TAU  # ~3.6s
-    save_every_n = 10
+    parser = argparse.ArgumentParser(description="Stand Go2 — repeatedly stand up and sit down")
+    parser.add_argument("--hold", type=float, default=2.0, help="Hold duration in seconds (default: 2.0)")
+    parser.add_argument("--ramp", type=float, default=3.0 * RAMP_TAU, help="Ramp duration in seconds (default: 3.6)")
+    parser.add_argument("--store_images", action="store_true", help="Save RGB images to images/")
+    parser.add_argument("--store_depth", action="store_true", help="Save depth heatmaps to depth/")
+    parser.add_argument("--save_every", type=int, default=10, help="Save every Nth frame (default: 10)")
+    args = parser.parse_args()
 
-    if len(sys.argv) > 1:
-        hold_duration = float(sys.argv[1])
-    if len(sys.argv) > 2:
-        ramp_duration = float(sys.argv[2])
-    if len(sys.argv) > 3:
-        save_every_n = max(1, int(sys.argv[3]))
+    hold_duration = args.hold
+    ramp_duration = args.ramp
+    save_every_n = max(1, args.save_every)
+    store_images = args.store_images
+    store_depth = args.store_depth
 
     tau = ramp_duration / 3.0
     half_cycle = ramp_duration + hold_duration
     full_cycle = 2.0 * half_cycle
 
-    os.makedirs("images", exist_ok=True)
-    os.makedirs("depth", exist_ok=True)
+    if store_images:
+        os.makedirs("images", exist_ok=True)
+    if store_depth:
+        os.makedirs("depth", exist_ok=True)
 
     print(
         f"Stand Go2 — hold={hold_duration:.1f}s  ramp={ramp_duration:.1f}s  "
-        f"cycle={full_cycle:.1f}s  save_every={save_every_n}"
+        f"cycle={full_cycle:.1f}s"
     )
-    print("Saving RGB to images/  and depth heatmaps to depth/")
     input("Press ENTER to start...")
 
-    cmd_pub = Publisher(MotorCommands, "rt/motor_commands")
-    state_sub = PollingSubscriber(LowState, "rt/low_state")
+    cmd_pub = Publisher(MotorCommands, "rt/lowcmd")
+    state_sub = PollingSubscriber(LowState, "rt/lowstate")
     image_sub = PollingSubscriber(ImgFrame, "rt/camera/image")
     pc_sub = PollingSubscriber(PointCloud2, "rt/pointcloud")
 
@@ -202,31 +207,31 @@ def main():
 
         cmd_pub.publish(cmd)
 
-        # Save every Nth received RGB image
-        img_count = image_sub.message_count()
-        if img_count > 0 and img_count >= last_saved_img + save_every_n:
-            img = image_sub.get()
-            if img is not None and Image is not None:
-                pil_img = Image.frombytes("RGB", (img.width, img.height), bytes(img.data))
-                filename = f"images/{saved_images:06d}.png"
-                pil_img.save(filename)
-                print(f"[{t:6.1f}s] Saved {filename}")
-                last_saved_img = img_count
-                saved_images += 1
+        if store_images:
+            img_count = image_sub.message_count()
+            if img_count > 0 and img_count >= last_saved_img + save_every_n:
+                img = image_sub.get()
+                if img is not None and Image is not None:
+                    pil_img = Image.frombytes("RGB", (img.width, img.height), bytes(img.data))
+                    filename = f"images/{saved_images:06d}.png"
+                    pil_img.save(filename)
+                    print(f"[{t:6.1f}s] Saved {filename}")
+                    last_saved_img = img_count
+                    saved_images += 1
 
-        # Save every Nth received pointcloud as depth heatmap
-        pc_count = pc_sub.message_count()
-        if pc_count > 0 and pc_count >= last_saved_pc + save_every_n:
-            pc = pc_sub.get()
-            if pc is not None:
-                png_data = pointcloud_to_depth_image(pc, DEPTH_W, DEPTH_H, DEPTH_FOV_Y, DEPTH_MAX)
-                if png_data is not None:
-                    filename = f"depth/{saved_depths:06d}.png"
-                    with open(filename, "wb") as f:
-                        f.write(png_data)
-                    print(f"[{t:6.1f}s] Saved {filename} ({pc.width} pts → {len(png_data)} bytes)")
-                    last_saved_pc = pc_count
-                    saved_depths += 1
+        if store_depth:
+            pc_count = pc_sub.message_count()
+            if pc_count > 0 and pc_count >= last_saved_pc + save_every_n:
+                pc = pc_sub.get()
+                if pc is not None:
+                    png_data = pointcloud_to_depth_image(pc, DEPTH_W, DEPTH_H, DEPTH_FOV_Y, DEPTH_MAX)
+                    if png_data is not None:
+                        filename = f"depth/{saved_depths:06d}.png"
+                        with open(filename, "wb") as f:
+                            f.write(png_data)
+                        print(f"[{t:6.1f}s] Saved {filename} ({pc.width} pts → {len(png_data)} bytes)")
+                        last_saved_pc = pc_count
+                        saved_depths += 1
 
         # Print state once per second
         step = int(t / DT)
