@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 include(GNUInstallDirs)
+find_package(Git REQUIRED)
 
 if(CMAKE_BUILD_TYPE MATCHES "Debug")
   message("Debug mode")
@@ -44,15 +45,70 @@ message(STATUS "tbai_sdk dir: ${TBAI_SDK_DIR}")
 
 set(ZENOH_INSTALL "${TBAI_SDK_DIR}/deps/zenoh-install" CACHE PATH "Zenoh install prefix")
 if(NOT EXISTS "${ZENOH_INSTALL}/lib/libzenohc.so")
-  message(STATUS "Zenoh not found — building from source (requires Rust)...")
-  execute_process(
-    COMMAND bash ${TBAI_SDK_DIR}/scripts/setup_zenoh.bash
-    WORKING_DIRECTORY ${TBAI_SDK_DIR}
-    RESULT_VARIABLE ZENOH_RESULT
-  )
-  if(NOT ZENOH_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to build zenoh. Ensure Rust is installed.")
+  message(STATUS "Building zenoh-c from source (requires Rust)...")
+  set(ZENOH_C_DIR "${TBAI_SDK_DIR}/deps/zenoh-c")
+  if(NOT EXISTS "${ZENOH_C_DIR}")
+    execute_process(
+      COMMAND ${GIT_EXECUTABLE} clone --depth 1 https://github.com/eclipse-zenoh/zenoh-c.git ${ZENOH_C_DIR}
+      RESULT_VARIABLE GIT_RESULT
+    )
+    if(NOT GIT_RESULT EQUAL 0)
+      message(FATAL_ERROR "Failed to clone zenoh-c")
+    endif()
   endif()
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} -S ${ZENOH_C_DIR} -B ${ZENOH_C_DIR}/build
+      -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_INSTALL_PREFIX=${ZENOH_INSTALL}
+      -DZENOHC_BUILD_WITH_UNSTABLE_API=ON
+      -DZENOHC_BUILD_WITH_SHARED_MEMORY=ON
+    RESULT_VARIABLE R)
+  if(NOT R EQUAL 0)
+    message(FATAL_ERROR "Failed to configure zenoh-c")
+  endif()
+  include(ProcessorCount)
+  ProcessorCount(NPROC)
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} --build ${ZENOH_C_DIR}/build --config Release -j${NPROC}
+    RESULT_VARIABLE R)
+  if(NOT R EQUAL 0)
+    message(FATAL_ERROR "Failed to build zenoh-c")
+  endif()
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} --install ${ZENOH_C_DIR}/build
+    RESULT_VARIABLE R)
+  if(NOT R EQUAL 0)
+    message(FATAL_ERROR "Failed to install zenoh-c")
+  endif()
+
+  message(STATUS "Installing zenoh-cpp headers...")
+  set(ZENOH_CPP_DIR "${TBAI_SDK_DIR}/deps/zenoh-cpp")
+  if(NOT EXISTS "${ZENOH_CPP_DIR}")
+    execute_process(
+      COMMAND ${GIT_EXECUTABLE} clone --depth 1 https://github.com/eclipse-zenoh/zenoh-cpp.git ${ZENOH_CPP_DIR}
+      RESULT_VARIABLE GIT_RESULT
+    )
+    if(NOT GIT_RESULT EQUAL 0)
+      message(FATAL_ERROR "Failed to clone zenoh-cpp")
+    endif()
+  endif()
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} -S ${ZENOH_CPP_DIR} -B ${ZENOH_CPP_DIR}/build
+      -DCMAKE_BUILD_TYPE=Release
+      -DCMAKE_INSTALL_PREFIX=${ZENOH_INSTALL}
+      -DCMAKE_PREFIX_PATH=${ZENOH_INSTALL}
+      -DZENOHCXX_ZENOHC=ON -DZENOHCXX_ZENOHPICO=OFF
+    RESULT_VARIABLE R)
+  if(NOT R EQUAL 0)
+    message(FATAL_ERROR "Failed to configure zenoh-cpp")
+  endif()
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} --install ${ZENOH_CPP_DIR}/build
+    RESULT_VARIABLE R)
+  if(NOT R EQUAL 0)
+    message(FATAL_ERROR "Failed to install zenoh-cpp")
+  endif()
+  message(STATUS "Zenoh ready at ${ZENOH_INSTALL}")
 endif()
 
 # ── Dependencies ──────────────────────────────────────────────────────────
