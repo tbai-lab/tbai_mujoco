@@ -38,15 +38,21 @@ message(STATUS "MuJoCo lib: ${MUJOCO_LIB}")
 # ── tbai_sdk ──────────────────────────────────────────────────────────────
 set(TBAI_SDK_DIR "${CMAKE_SOURCE_DIR}/thirdparty/tbai_sdk" CACHE PATH "Path to tbai_sdk")
 if(NOT EXISTS "${TBAI_SDK_DIR}/include/tbai_sdk/session.hpp")
-  message(FATAL_ERROR "tbai_sdk not found at ${TBAI_SDK_DIR}.\nRun: pixi run setup-tbai-sdk")
+  message(FATAL_ERROR "tbai_sdk not found at ${TBAI_SDK_DIR}.\nSet -DTBAI_SDK_DIR=<path> or run: pixi run setup-tbai-sdk")
 endif()
 message(STATUS "tbai_sdk dir: ${TBAI_SDK_DIR}")
 
 set(ZENOH_INSTALL "${TBAI_SDK_DIR}/deps/zenoh-install" CACHE PATH "Zenoh install prefix")
 if(NOT EXISTS "${ZENOH_INSTALL}/lib/libzenohc.so")
-  message(FATAL_ERROR
-    "Zenoh not found at ${ZENOH_INSTALL}.\n"
-    "Run: pixi run setup-tbai-sdk")
+  message(STATUS "Zenoh not found — building from source (requires Rust)...")
+  execute_process(
+    COMMAND bash ${TBAI_SDK_DIR}/scripts/setup_zenoh.bash
+    WORKING_DIRECTORY ${TBAI_SDK_DIR}
+    RESULT_VARIABLE ZENOH_RESULT
+  )
+  if(NOT ZENOH_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to build zenoh. Ensure Rust is installed.")
+  endif()
 endif()
 
 # ── Dependencies ──────────────────────────────────────────────────────────
