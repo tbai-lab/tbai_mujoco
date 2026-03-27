@@ -39,7 +39,7 @@ message(STATUS "MuJoCo lib: ${MUJOCO_LIB}")
 # ── tbai_sdk ──────────────────────────────────────────────────────────────
 set(TBAI_SDK_DIR "${CMAKE_SOURCE_DIR}/thirdparty/tbai_sdk" CACHE PATH "Path to tbai_sdk")
 if(NOT EXISTS "${TBAI_SDK_DIR}/include/tbai_sdk/session.hpp")
-  message(FATAL_ERROR "tbai_sdk not found at ${TBAI_SDK_DIR}.\nSet -DTBAI_SDK_DIR=<path> or run: pixi run setup-tbai-sdk")
+  message(FATAL_ERROR "tbai_sdk not found at ${TBAI_SDK_DIR}.\nRun: bash setup.bash")
 endif()
 message(STATUS "tbai_sdk dir: ${TBAI_SDK_DIR}")
 
