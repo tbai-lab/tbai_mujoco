@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Repeatedly stand up and sit down — using tbai_sdk over Zenoh.
-
-Usage: python stand_go2.py [--store_images] [--store_depth] [--hold S] [--ramp S] [--save_every N]
-"""
-
 import argparse
 import math
 import os

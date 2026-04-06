@@ -1,6 +1,3 @@
-// Repeatedly stand up and sit down — using tbai_sdk over Zenoh.
-// Usage: stand_go2 [hold_duration_s] [ramp_duration_s] [save_every_nth_frame]
-
 #include <algorithm>
 #include <deque>
 #include <cmath>
