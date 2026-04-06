@@ -40,15 +40,8 @@
 
 extern "C"
 {
-#if defined(_WIN32) || defined(__CYGWIN__)
-#include <windows.h>
-#else
-#if defined(__APPLE__)
-#include <mach-o/dyld.h>
-#endif
 #include <sys/errno.h>
 #include <unistd.h>
-#endif
 }
 
 class ElasticBand
@@ -105,61 +98,8 @@ namespace
 
   std::string getExecutableDir()
   {
-#if defined(_WIN32) || defined(__CYGWIN__)
-    constexpr char kPathSep = '\\';
-    std::string realpath = [&]() -> std::string
-    {
-      std::unique_ptr<char[]> realpath(nullptr);
-      DWORD buf_size = 128;
-      bool success = false;
-      while (!success)
-      {
-        realpath.reset(new (std::nothrow) char[buf_size]);
-        if (!realpath)
-        {
-          std::cerr << "cannot allocate memory to store executable path\n";
-          return "";
-        }
-
-        DWORD written = GetModuleFileNameA(nullptr, realpath.get(), buf_size);
-        if (written < buf_size)
-        {
-          success = true;
-        }
-        else if (written == buf_size)
-        {
-          buf_size *= 2;
-        }
-        else
-        {
-          std::cerr << "failed to retrieve executable path: " << GetLastError() << "\n";
-          return "";
-        }
-      }
-      return realpath.get();
-    }();
-#else
     constexpr char kPathSep = '/';
-#if defined(__APPLE__)
-    std::unique_ptr<char[]> buf(nullptr);
-    {
-      std::uint32_t buf_size = 0;
-      _NSGetExecutablePath(nullptr, &buf_size);
-      buf.reset(new char[buf_size]);
-      if (!buf)
-      {
-        std::cerr << "cannot allocate memory to store executable path\n";
-        return "";
-      }
-      if (_NSGetExecutablePath(buf.get(), &buf_size))
-      {
-        std::cerr << "unexpected error from _NSGetExecutablePath\n";
-      }
-    }
-    const char *path = buf.get();
-#else
     const char *path = "/proc/self/exe";
-#endif
     std::string realpath = [&]() -> std::string
     {
       std::unique_ptr<char[]> realpath(nullptr);
@@ -197,7 +137,6 @@ namespace
       }
       return realpath.get();
     }();
-#endif
 
     if (realpath.empty())
     {
@@ -227,11 +166,7 @@ namespace
       }
     }
 
-#if defined(_WIN32) || defined(__CYGWIN__)
-    const std::string sep = "\\";
-#else
     const std::string sep = "/";
-#endif
 
     const std::string executable_dir = getExecutableDir();
     if (executable_dir.empty())
@@ -587,15 +522,6 @@ void *TbaiBridgeThread(void *arg)
 
 //------------------------------------------ main --------------------------------------------------
 
-#if defined(__APPLE__) && defined(__AVX__)
-extern void DisplayErrorDialogBox(const char *title, const char *msg);
-static const char *rosetta_error_msg = nullptr;
-__attribute__((used, visibility("default"))) extern "C" void _mj_rosettaError(const char *msg)
-{
-  rosetta_error_msg = msg;
-}
-#endif
-
 void user_key_cb(GLFWwindow* window, int key, int scancode, int act, int mods) {
   if (act==GLFW_PRESS)
   {
@@ -620,13 +546,6 @@ void user_key_cb(GLFWwindow* window, int key, int scancode, int act, int mods) {
 
 int main(int argc, char **argv)
 {
-#if defined(__APPLE__) && defined(__AVX__)
-  if (rosetta_error_msg)
-  {
-    DisplayErrorDialogBox("Rosetta 2 is not supported", rosetta_error_msg);
-    std::exit(1);
-  }
-#endif
 
   std::printf("MuJoCo version %s\n", mj_versionString());
   if (mjVERSION_HEADER != mj_version())
