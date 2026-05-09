@@ -52,6 +52,11 @@ inline struct SimulationConfig
         int stride = 4;
         float min_distance = 0.1f;
         float max_distance = 2.5f;
+        // Output format: "pointcloud" (default, robot_msgs::PointCloud2) or
+        // "image" (robot_msgs::ImgFrame, encoding "32FC1"). The image format
+        // preserves pixel-level alignment for consumers that need it (e.g.,
+        // visual odometry).
+        std::string format = "pointcloud";
     };
     std::vector<DepthCamera> depth_cameras;
 
@@ -105,6 +110,7 @@ inline struct SimulationConfig
                     if (dc["stride"]) d.stride = dc["stride"].as<int>();
                     if (dc["min_distance"]) d.min_distance = dc["min_distance"].as<float>();
                     if (dc["max_distance"]) d.max_distance = dc["max_distance"].as<float>();
+                    if (dc["format"]) d.format = dc["format"].as<std::string>();
                     depth_cameras.push_back(d);
                 }
             }

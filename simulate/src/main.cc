@@ -34,6 +34,7 @@
 #include "tbai_bridge.h"
 #include "video_server.h"
 #include "pointcloud_server.h"
+#include "depth_image_server.h"
 #include "param.h"
 
 #define MUJOCO_PLUGIN_DIR "mujoco_plugin"
@@ -498,12 +499,33 @@ void *TbaiBridgeThread(void *arg)
     }
   }
 
-  // Start depth camera / pointcloud publishers
+  // Start depth camera / pointcloud / depth-image publishers
   std::vector<std::unique_ptr<PointCloudPublisher>> pointcloud_pubs;
+  std::vector<std::unique_ptr<DepthImagePublisher>> depth_image_pubs;
   if (param::config.enable_depth_cameras) {
+    std::cerr << "[DepthSetup] enable_depth_cameras=1 with " << param::config.depth_cameras.size()
+              << " camera(s)" << std::endl;
     for (size_t i = 0; i < param::config.depth_cameras.size(); i++) {
       const auto &dc = param::config.depth_cameras[i];
-      if (dc.enabled && i < args->depth_camera_windows.size() && args->depth_camera_windows[i]) {
+      std::cerr << "[DepthSetup] cam[" << i << "]: name='" << dc.name << "' topic='" << dc.topic
+                << "' format='" << dc.format << "' enabled=" << dc.enabled
+                << " windows.size=" << args->depth_camera_windows.size()
+                << " window[i]=" << (i < args->depth_camera_windows.size() ? args->depth_camera_windows[i] : nullptr)
+                << std::endl;
+      if (!(dc.enabled && i < args->depth_camera_windows.size() && args->depth_camera_windows[i])) {
+        std::cerr << "[DepthSetup] cam[" << i << "] SKIPPED (disabled or no window)" << std::endl;
+        continue;
+      }
+      if (dc.format == "image") {
+        std::cerr << "[DepthSetup] cam[" << i << "] -> DepthImagePublisher" << std::endl;
+        auto pub = std::make_unique<DepthImagePublisher>(
+            m, d, args->sim->mtx, args->depth_camera_windows[i],
+            dc.name, dc.width, dc.height, dc.fps,
+            dc.topic, dc.min_distance, dc.max_distance);
+        pub->start();
+        depth_image_pubs.push_back(std::move(pub));
+      } else {
+        std::cerr << "[DepthSetup] cam[" << i << "] -> PointCloudPublisher" << std::endl;
         auto pub = std::make_unique<PointCloudPublisher>(
             m, d, args->sim->mtx, args->depth_camera_windows[i],
             dc.name, dc.width, dc.height, dc.fps, dc.stride,
@@ -512,6 +534,8 @@ void *TbaiBridgeThread(void *arg)
         pointcloud_pubs.push_back(std::move(pub));
       }
     }
+  } else {
+    std::cerr << "[DepthSetup] enable_depth_cameras=0; no depth publishers started" << std::endl;
   }
 
   while (true)
